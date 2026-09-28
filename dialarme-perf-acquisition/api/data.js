@@ -101,8 +101,9 @@ function cohorteDepense(connecteur, campagne) {
 
 const vide = () => ({
   leads: 0, contactes: 0, morts: 0, positionnes: 0, argumentes: 0, signes: 0,
-  enLigne: 0, nonTraites: 0, depense: 0, clics: 0, impressions: 0,
+  enLigne: 0, signesEnLigne: 0, nonTraites: 0, depense: 0, clics: 0, impressions: 0,
   delais: [], sousUneHeure: 0, delaiPositionnement: [],
+  delaiEnLigne: [], delaiAppel: [],
 });
 
 function mediane(liste) {
@@ -124,14 +125,27 @@ function finaliser(c) {
     tauxSignature: tx(c.signes, c.positionnes),
     tauxSignatureGlobal: tx(c.signes, c.leads),
     tauxMorts: tx(c.morts, c.leads),
+    parAppel: c.positionnes - c.enLigne,
+    tauxAutoReservation: tx(c.enLigne, c.positionnes),
+    tauxLeadVersEnLigne: tx(c.enLigne, c.leads),
+    tauxLeadVersAppel: tx(c.positionnes - c.enLigne, c.leads),
+    signesEnLigne: c.signesEnLigne,
+    signesParAppel: c.signes - c.signesEnLigne,
+    tauxSignatureEnLigne: tx(c.signesEnLigne, c.enLigne),
+    tauxSignatureParAppel: tx(c.signes - c.signesEnLigne, c.positionnes - c.enLigne),
+    delaiEnLigneMedianJours: mediane(c.delaiEnLigne),
+    delaiAppelMedianJours: mediane(c.delaiAppel),
     coutParLead: cout(c.depense, c.leads),
     coutParPositionne: cout(c.depense, c.positionnes),
+    coutParPositionneEnLigne: cout(c.depense, c.enLigne),
     coutParSigne: cout(c.depense, c.signes),
     delaiMedianMin: mediane(c.delais),
     partSousUneHeure: tx(c.sousUneHeure, c.contactes),
     delaiPositionnementMedianJours: mediane(c.delaiPositionnement),
     delais: undefined,
     delaiPositionnement: undefined,
+    delaiEnLigne: undefined,
+    delaiAppel: undefined,
   };
 }
 
@@ -194,11 +208,19 @@ export default async function handler(req, res) {
       if (statut === "Signé" || f.DATE_SIGNATURE) c.signes += 1;
 
       if (f.DATE_POSITIONNEMENT) {
+        const enLigne = String(f.CALENDAR_EVENT_ID || "").includes("calendly");
         c.positionnes += 1;
-        if (String(f.CALENDAR_EVENT_ID || "").includes("calendly")) c.enLigne += 1;
+        if (enLigne) {
+          c.enLigne += 1;
+          if (statut === "Signé" || f.DATE_SIGNATURE) c.signesEnLigne += 1;
+        }
         if (f.HORODATAGE_ARRIVEE) {
           const j = (new Date(f.DATE_POSITIONNEMENT) - new Date(f.HORODATAGE_ARRIVEE)) / 86400000;
-          if (j >= 0 && j < 120) c.delaiPositionnement.push(Math.round(j * 10) / 10);
+          if (j >= 0 && j < 120) {
+            const arrondi = Math.round(j * 10) / 10;
+            c.delaiPositionnement.push(arrondi);
+            (enLigne ? c.delaiEnLigne : c.delaiAppel).push(arrondi);
+          }
         }
         const rec = (f.ATTRIBUTION || [])[0];
         if (rec) {
@@ -221,10 +243,15 @@ export default async function handler(req, res) {
         creatives[pub] = creatives[pub] || {
           publicite: pub,
           campagne: String(f.utm_campaign || "").replace(/\+/g, " "),
-          leads: 0, positionnes: 0, signes: 0, depense: 0,
+          leads: 0, positionnes: 0, enLigne: 0, signes: 0, depense: 0,
         };
         creatives[pub].leads += 1;
-        if (f.DATE_POSITIONNEMENT) creatives[pub].positionnes += 1;
+        if (f.DATE_POSITIONNEMENT) {
+          creatives[pub].positionnes += 1;
+          if (String(f.CALENDAR_EVENT_ID || "").includes("calendly")) {
+            creatives[pub].enLigne += 1;
+          }
+        }
         if (statut === "Signé") creatives[pub].signes += 1;
       }
     }
@@ -241,7 +268,7 @@ export default async function handler(req, res) {
           const pub = String(d.ad_name || "(sans nom)").replace(/\+/g, " ");
           creatives[pub] = creatives[pub] || {
             publicite: pub, campagne: String(d.campaign || ""),
-            leads: 0, positionnes: 0, signes: 0, depense: 0,
+            leads: 0, positionnes: 0, enLigne: 0, signes: 0, depense: 0,
           };
           creatives[pub].depense += montant;
         }
