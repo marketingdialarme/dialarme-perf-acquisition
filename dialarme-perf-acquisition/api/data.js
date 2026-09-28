@@ -24,13 +24,14 @@ const STATUTS_ARGUMENTES = [
 
 /* ---------------- Airtable ---------------- */
 
-async function lireTable(table, params = {}) {
+async function lireTable(table, params) {
   const token = process.env.AIRTABLE_TOKEN;
   const sortie = [];
   let offset;
 
   do {
-    const qs = new URLSearchParams({ pageSize: "100", ...params });
+    const qs = new URLSearchParams(params);
+    qs.set("pageSize", "100");
     if (offset) qs.set("offset", offset);
     const r = await fetch(`https://api.airtable.com/v0/${BASE}/${table}?${qs}`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -49,9 +50,12 @@ async function lireLeads(du, au) {
   CHAMPS.forEach((c) => params.append("fields[]", c));
   params.set(
     "filterByFormula",
-    `AND(IS_AFTER({DATE}, "${du}"), IS_BEFORE({DATE}, "${au}"))`
+    `AND(
+       IS_AFTER({HORODATAGE_ARRIVEE}, DATETIME_PARSE("${du}", "YYYY-MM-DD")),
+       IS_BEFORE({HORODATAGE_ARRIVEE}, DATETIME_PARSE("${au}", "YYYY-MM-DD"))
+     )`.replace(/\s+/g, " ")
   );
-  return lireTable(TABLE_LEADS, Object.fromEntries(params));
+  return lireTable(TABLE_LEADS, params);
 }
 
 /* ---------------- Windsor.ai ---------------- */
@@ -153,7 +157,7 @@ export default async function handler(req, res) {
 
     const [leads, commerciaux, meta, google] = await Promise.all([
       lireLeads(veille, lendemain),
-      lireTable(TABLE_COMMERCIAUX, { "fields[]": "PRENOM" }),
+      lireTable(TABLE_COMMERCIAUX, new URLSearchParams([["fields[]", "PRENOM"]])),
       lireDepenses("facebook", du, au),
       lireDepenses("google_ads", du, au),
     ]);
