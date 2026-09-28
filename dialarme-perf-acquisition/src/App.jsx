@@ -142,6 +142,17 @@ export default function App() {
                     <Bloc label="Taux de positionnement" valeur={pct(d.tauxPositionnement)} />
                     <Bloc label="Taux de signature" valeur={pct(d.tauxSignature)} />
                   </div>
+                  <div style={{ borderTop: `1px solid ${C.ligne}`, marginTop: 18, paddingTop: 16 }}>
+                    <div style={{ fontSize: 12, color: C.gris, marginBottom: 12, fontWeight: 600 }}>
+                      Origine des rendez-vous
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                      <Bloc label="Réservés en ligne" valeur={nb(d.enLigne)} accent />
+                      <Bloc label="Positionnés par appel" valeur={nb(d.parAppel)} />
+                      <Bloc label="Part auto-réservée" valeur={pct(d.tauxAutoReservation)} />
+                      <Bloc label="Coût / RDV en ligne" valeur={chf(d.coutParPositionneEnLigne)} />
+                    </div>
+                  </div>
                 </div>
               );
             })}
@@ -156,7 +167,14 @@ export default function App() {
               ["Contactés", ...COHORTES.map((c) => `${nb(co[c.cle]?.contactes)} (${pct(co[c.cle]?.tauxContact)})`)],
               ["Leads morts", ...COHORTES.map((c) => `${nb(co[c.cle]?.morts)} (${pct(co[c.cle]?.tauxMorts)})`)],
               ["Positionnés", ...COHORTES.map((c) => `${nb(co[c.cle]?.positionnes)} (${pct(co[c.cle]?.tauxPositionnement)})`)],
-              ["dont réservés en ligne", ...COHORTES.map((c) => nb(co[c.cle]?.enLigne))],
+              ["dont réservés en ligne", ...COHORTES.map((c) => `${nb(co[c.cle]?.enLigne)} (${pct(co[c.cle]?.tauxAutoReservation)})`)],
+              ["dont positionnés par appel", ...COHORTES.map((c) => nb(co[c.cle]?.parAppel))],
+              ["Taux lead → RDV en ligne", ...COHORTES.map((c) => pct(co[c.cle]?.tauxLeadVersEnLigne))],
+              ["Taux lead → RDV par appel", ...COHORTES.map((c) => pct(co[c.cle]?.tauxLeadVersAppel))],
+              ["Signés issus d'un RDV en ligne", ...COHORTES.map((c) => `${nb(co[c.cle]?.signesEnLigne)} (${pct(co[c.cle]?.tauxSignatureEnLigne)})`)],
+              ["Signés issus d'un RDV par appel", ...COHORTES.map((c) => `${nb(co[c.cle]?.signesParAppel)} (${pct(co[c.cle]?.tauxSignatureParAppel)})`)],
+              ["Délai médian lead → RDV en ligne", ...COHORTES.map((c) => co[c.cle]?.delaiEnLigneMedianJours != null ? `${co[c.cle].delaiEnLigneMedianJours} j` : "—")],
+              ["Délai médian lead → RDV par appel", ...COHORTES.map((c) => co[c.cle]?.delaiAppelMedianJours != null ? `${co[c.cle].delaiAppelMedianJours} j` : "—")],
               ["Argumentés", ...COHORTES.map((c) => `${nb(co[c.cle]?.argumentes)} (${pct(co[c.cle]?.tauxArgumente)})`)],
               ["Signés", ...COHORTES.map((c) => `${nb(co[c.cle]?.signes)} (${pct(co[c.cle]?.tauxSignature)})`)],
               ["Coût par signature", ...COHORTES.map((c) => chf(co[c.cle]?.coutParSigne))],
@@ -171,9 +189,9 @@ export default function App() {
               Uniquement les leads de la landing page, classés par nombre de rendez-vous positionnés.
             </p>
             <Tableau
-              entetes={["Publicité", "Dépense", "Leads", "Positionnés", "Signés", "Coût / lead", "Coût / RDV", "Taux pos."]}
+              entetes={["Publicité", "Dépense", "Leads", "Positionnés", "dont en ligne", "Signés", "Coût / lead", "Coût / RDV", "Taux pos."]}
               lignes={(data.creatives || []).map((c) => [
-                c.publicite, chf(c.depense), nb(c.leads), nb(c.positionnes),
+                c.publicite, chf(c.depense), nb(c.leads), nb(c.positionnes), nb(c.enLigne),
                 nb(c.signes), chf(c.coutParLead), chf(c.coutParPositionne), pct(c.tauxPositionnement),
               ])}
             />
